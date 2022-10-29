@@ -6,6 +6,9 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use core::fmt;
 
+pub const DEFAULT_BG_COLOR: Color = Color::Black;
+pub const DEFAULT_FG_COLOR: Color = Color::White;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Color {
@@ -64,7 +67,7 @@ struct Writer {
 impl Writer {
     fn new() -> Self {
         Writer { 
-            color_code: ColorCode::new(Color::LightGreen, Color::Black), 
+            color_code: ColorCode::new(DEFAULT_FG_COLOR, DEFAULT_BG_COLOR), 
             buffer: unsafe {&mut  *(0xb8000 as *mut Buffer)}, 
             line_position: 0 
         }
@@ -158,7 +161,7 @@ macro_rules! println {
 
 #[macro_export]
 macro_rules! bg {
-    () => {$crate::vga_buffer::_set_bg_color($crate::vga_buffer::Color::Black)}; // reset
+    () => {$crate::vga_buffer::_set_bg_color($crate::vga_buffer::DEFAULT_BG_COLOR)}; // reset
     ($color:tt) => {
         $crate::vga_buffer::_set_bg_color($crate::vga_buffer::Color::$color);
     };
@@ -171,7 +174,7 @@ pub fn _set_bg_color(bg_color: Color) {
 
 #[macro_export]
 macro_rules! fg {
-    () => {$crate::vga_buffer::_set_fg_color($crate::vga_buffer::Color::LightGreen)}; // reset
+    () => {$crate::vga_buffer::_set_fg_color($crate::vga_buffer::DEFAULT_FG_COLOR)}; // reset
     ($color:tt) => {
         $crate::vga_buffer::_set_fg_color($crate::vga_buffer::Color::$color);
     };
@@ -180,4 +183,20 @@ macro_rules! fg {
 pub fn _set_fg_color(bg_color: Color) {
     let mut w = WRITER.lock();
     w.color_code.0 = ((w.color_code.0) & 0xF0) | ((bg_color as u8)) ;
+}
+
+#[macro_export]
+macro_rules! cprint {
+    ($color:tt, $($arg:tt)*) => {{
+        $crate::fg!($color);
+        $crate::print!("{}", format_args!($($arg)*));
+        $crate::fg!();
+    }};
+}
+
+#[macro_export]
+macro_rules! cprintln {
+    ($color:tt, $($arg:tt)*) => {{
+        $crate::cprint!($color, "{}\n", format_args!($($arg)*));
+    }};
 }
