@@ -14,7 +14,22 @@ pub extern "C" fn _start() -> ! {
 
     println!("Hello {}{}", "there", "!");
 
-    x86_64::instructions::interrupts::int3();
+    // x86_64::instructions::interrupts::int3();
+
+    // println!("I am alive!");
+
+    // trigger a page fault
+    // unsafe {
+    //     *(0xdeadbeef as *mut u64) = 42;
+    // };
+
+    // #[allow(unconditional_recursion)]
+    // fn stack_overflow() {
+    //     stack_overflow(); // for each recursion, the return address is pushed
+    // }
+
+    // trigger a stack overflow
+    //stack_overflow();
 
     //vga_buffer::_print_something("Hello from VGA! \nHow are you? Wörld!");
 
@@ -24,6 +39,7 @@ pub extern "C" fn _start() -> ! {
     // println!("How are you?");
     // //fg!();bg!(); // rest to default
     // println!("Hi Aarsi!");
+
     #[cfg(test)]
     test_main();
 
