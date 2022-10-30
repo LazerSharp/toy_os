@@ -10,8 +10,14 @@ use toy_os::println;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    //vga_buffer::_print_something("Hello from VGA! \nHow are you? Wörld!");
+    toy_os::init();
+
     println!("Hello {}{}", "there", "!");
+
+    x86_64::instructions::interrupts::int3();
+
+    //vga_buffer::_print_something("Hello from VGA! \nHow are you? Wörld!");
+
     //set_bg_color(Color::Brown);
     // bg!(Brown);
     // fg!(White);
@@ -21,8 +27,10 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main();
 
+    println!("I am still alive!");
+
     loop {
-        panic!("I am worried :(");
+        //panic!("I am worried :(");
     }
 }
 
