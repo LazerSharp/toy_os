@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use core::{convert::TryFrom, fmt};
+use core::{convert::TryFrom, fmt, ops::DerefMut};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
@@ -157,13 +157,27 @@ lazy_static! {
     static ref WRITER: Mutex<Writer> = Mutex::new(Writer::new());
 }
 
-pub fn _print_something(text: &str) {
+fn _print_something(text: &str) {
     WRITER.lock().write_string(text);
 }
 
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    })
+}
+
+pub fn _cprint(fg_color: Color, args: fmt::Arguments) {
+    use fmt::Write;
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        _set_fg_color_to_writer(writer.deref_mut(), fg_color);
+        writer.write_fmt(args).unwrap();
+        _set_fg_color_to_writer(writer.deref_mut(), DEFAULT_FG_COLOR);
+    })
 }
 
 #[macro_export]
@@ -177,42 +191,50 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
-#[macro_export]
-macro_rules! bg {
-    () => {
-        $crate::vga_buffer::_set_bg_color($crate::vga_buffer::DEFAULT_BG_COLOR)
-    }; // reset
-    ($color:tt) => {
-        $crate::vga_buffer::_set_bg_color($crate::vga_buffer::Color::$color);
-    };
-}
+//#[macro_export]
+// macro_rules! bg {
+//     () => {
+//         $crate::vga_buffer::_set_bg_color($crate::vga_buffer::DEFAULT_BG_COLOR)
+//     }; // reset
+//     ($color:tt) => {
+//         $crate::vga_buffer::_set_bg_color($crate::vga_buffer::Color::$color);
+//     };
+// }
 
-pub fn _set_bg_color(bg_color: Color) {
-    let mut w = WRITER.lock();
-    w.color_code.0 = ((w.color_code.0) & 0x0F) | ((bg_color as u8) << 4);
-}
+// pub fn _set_bg_color(bg_color: Color) {
+//     let mut w = WRITER.lock();
+//     w.color_code.0 = ((w.color_code.0) & 0x0F) | ((bg_color as u8) << 4);
+// }
 
-#[macro_export]
-macro_rules! fg {
-    () => {
-        $crate::vga_buffer::_set_fg_color($crate::vga_buffer::DEFAULT_FG_COLOR)
-    }; // reset
-    ($color:tt) => {
-        $crate::vga_buffer::_set_fg_color($crate::vga_buffer::Color::$color);
-    };
-}
+//#[macro_export]
+// macro_rules! fg {
+//     () => {
+//         $crate::vga_buffer::_set_fg_color($crate::vga_buffer::DEFAULT_FG_COLOR)
+//     }; // reset
+//     ($color:tt) => {
+//         $crate::vga_buffer::_set_fg_color($crate::vga_buffer::Color::$color);
+//     };
+// }
 
 pub fn _set_fg_color(bg_color: Color) {
     let mut w = WRITER.lock();
+    //w.color_code.0 = ((w.color_code.0) & 0xF0) | (bg_color as u8);
+    _set_fg_color_to_writer(w.deref_mut(), bg_color);
+}
+
+//
+
+fn _set_fg_color_to_writer(w: &mut Writer, bg_color: Color) {
     w.color_code.0 = ((w.color_code.0) & 0xF0) | (bg_color as u8);
 }
 
 #[macro_export]
 macro_rules! cprint {
     ($color:tt, $($arg:tt)*) => {{
-        $crate::fg!($color);
-        $crate::print!("{}", format_args!($($arg)*));
-        $crate::fg!();
+        // $crate::fg!($color);
+        // $crate::print!("{}", format_args!($($arg)*));
+        // $crate::fg!();
+        $crate::vga_buffer::_cprint($crate::vga_buffer::Color::$color, format_args!($($arg)*))
     }};
 }
 
@@ -239,21 +261,36 @@ fn test_println_multiple_times() {
 
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+
     let s = "Some test string that fits on a single line";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_code), c);
-    }
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        //println!("{}", s);
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_code), c);
+        }
+    });
 }
 
 #[test_case]
 fn test_cprintln_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
     let s = "Some test string that fits on a single line";
-    cprintln!(Brown, "{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_code), c);
-        assert_eq!(screen_char.color_code.fg_color(), Color::Brown);
-    }
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        _set_fg_color_to_writer(writer.deref_mut(), Color::Brown);
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+
+        //cprintln!(Brown, "{}", s);
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_code), c);
+            assert_eq!(screen_char.color_code.fg_color(), Color::Brown);
+        }
+    })
 }

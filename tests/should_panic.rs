@@ -8,7 +8,7 @@ use toy_os::{exit_qemu, sprint, sprintln, QemuExitCode};
 fn panic(_info: &PanicInfo) -> ! {
     sprintln!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    loop {}
+    toy_os::hlt_loop();
 }
 
 #[no_mangle]
@@ -16,8 +16,7 @@ pub extern "C" fn _start() -> ! {
     should_fail();
     sprintln!("[test did not panic]");
     exit_qemu(QemuExitCode::Failure);
-
-    loop {}
+    toy_os::hlt_loop();
 }
 
 fn should_fail() {

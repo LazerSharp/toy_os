@@ -56,5 +56,5 @@ extern "x86-interrupt" fn test_double_fault_handler(
 ) -> ! {
     sprintln!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    loop {}
+    toy_os::hlt_loop();
 }

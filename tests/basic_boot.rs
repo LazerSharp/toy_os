@@ -10,7 +10,7 @@ use toy_os::println;
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
     test_main();
-    loop {}
+    toy_os::hlt_loop();
 }
 
 #[panic_handler]

@@ -10,9 +10,9 @@ use toy_os::println;
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    toy_os::init();
-
     println!("Hello {}{}", "there", "!");
+
+    toy_os::init();
 
     // x86_64::instructions::interrupts::int3();
 
@@ -45,19 +45,19 @@ pub extern "C" fn _start() -> ! {
 
     println!("I am still alive!");
 
-    loop {
-        //panic!("I am worried :(");
-    }
+    // loop {
+    //     for _ in 1..1000 {}
+    //     cprint!(LightBlue, "-");
+    // }
+    toy_os::hlt_loop();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(panic: &PanicInfo) -> ! {
-    use toy_os::{bg, fg};
-    bg!(Yellow);
-    fg!(Red);
-    println!("Panic! msg: {}", panic);
-    loop {}
+    use toy_os::cprintln;
+    cprintln!(Red, "Panic! msg: {}", panic);
+    toy_os::hlt_loop();
 }
 
 #[cfg(test)]
