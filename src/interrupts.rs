@@ -57,7 +57,7 @@ pub fn init_idt() {
 // Hardware interrupts
 
 extern "x86-interrupt" fn timer_intr_handler(_stack_frame: InterruptStackFrame) {
-    // cprint!(LightGreen, ".");
+    cprint!(LightGreen, ".");
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8())
