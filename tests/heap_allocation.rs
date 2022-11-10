@@ -8,8 +8,8 @@ extern crate alloc;
 
 use alloc::{boxed::Box, rc::Rc, vec};
 use bootloader::{entry_point, BootInfo};
-use core::panic::PanicInfo;
-use toy_os::{allocator::init_heap, memory};
+use core::{mem::align_of, mem::size_of, panic::PanicInfo};
+use toy_os::{allocator::init_heap, memory, sprintln};
 use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
@@ -34,6 +34,12 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[test_case]
 fn test_box() {
+    sprintln!("\ntype \t size \t align");
+    sprintln!("-----------------------");
+    sprintln!("isize \t {} \t {}", size_of::<isize>(), align_of::<isize>());
+    sprintln!("u8 \t {} \t {}", size_of::<u8>(), align_of::<u8>());
+    sprintln!("i16 \t {} \t {}", size_of::<i16>(), align_of::<i16>());
+
     let _v = Box::new(123);
 }
 

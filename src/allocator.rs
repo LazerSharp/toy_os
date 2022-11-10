@@ -1,12 +1,15 @@
-use core::{alloc::GlobalAlloc, ptr::null_mut};
+pub mod fixed_size_block;
 
-use linked_list_allocator::LockedHeap;
+use core::{alloc::GlobalAlloc, ptr::null_mut};
 use x86_64::{
     structures::paging::{
         mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
     },
     VirtAddr,
 };
+
+use fixed_size_block::FixedSizedBlockAllocator;
+use fixed_size_block::Locked;
 
 // #[global_allocator]
 // static ALLOCATOR: Dummy = Dummy;
@@ -29,7 +32,7 @@ pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<FixedSizedBlockAllocator> = Locked::new(FixedSizedBlockAllocator::new());
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
