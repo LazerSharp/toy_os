@@ -4,6 +4,7 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(toy_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![allow(unused)]
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -14,6 +15,8 @@ use core::panic::PanicInfo;
 use toy_os::allocator::init_heap;
 use toy_os::memory;
 use toy_os::println;
+use toy_os::task::simple_executor::SimpleExecutor;
+use toy_os::task::Task;
 use x86_64::VirtAddr;
 
 //cprintln
@@ -34,23 +37,28 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
     init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
-    let x = Box::new(123);
-    println!("x at {:p}", x);
 
-    let mut v = vec![];
+    let mut executor = SimpleExecutor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.start();
 
-    for i in 0..500 {
-        v.push(i);
-    }
-    println!("v at {:p}", v.as_slice());
+    // let x = Box::new(123);
+    // println!("x at {:p}", x);
 
-    let rc = Rc::new(5);
-    let rc_clone = rc.clone();
-    println!("ref count -> {}", Rc::strong_count(&rc));
+    // let mut v = vec![];
 
-    drop(rc);
+    // for i in 0..500 {
+    //     v.push(i);
+    // }
+    // println!("v at {:p}", v.as_slice());
 
-    println!("ref count -> {}", Rc::strong_count(&rc_clone));
+    // let rc = Rc::new(5);
+    // let rc_clone = rc.clone();
+    // println!("ref count -> {}", Rc::strong_count(&rc));
+
+    // drop(rc);
+
+    // println!("ref count -> {}", Rc::strong_count(&rc_clone));
 
     // read page table
 
@@ -142,6 +150,17 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     //     cprint!(LightBlue, "-");
     // }
     toy_os::hlt_loop();
+}
+
+#[allow(dead_code)]
+async fn async_number() -> u32 {
+    42
+}
+
+#[allow(dead_code)]
+async fn example_task() {
+    let num = async_number().await;
+    println!("Got number {}", num);
 }
 
 #[cfg(not(test))]
