@@ -15,6 +15,8 @@ use core::panic::PanicInfo;
 use toy_os::allocator::init_heap;
 use toy_os::memory;
 use toy_os::println;
+use toy_os::task::executor::Executor;
+use toy_os::task::keyboard;
 use toy_os::task::simple_executor::SimpleExecutor;
 use toy_os::task::Task;
 use x86_64::VirtAddr;
@@ -38,9 +40,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
 
-    let mut executor = SimpleExecutor::new();
+    let mut executor = Executor::new();
     executor.spawn(Task::new(example_task()));
-    executor.start();
+    executor.spawn(Task::new(keyboard::print_key_strokes()));
+    executor.run();
 
     // let x = Box::new(123);
     // println!("x at {:p}", x);

@@ -22,7 +22,7 @@ impl SimpleExecutor {
         self.tasks.push_back(task);
     }
 
-    pub fn start(&mut self) {
+    pub fn run(&mut self) {
         while let Some(mut task) = self.tasks.pop_front() {
             let mut waker = dummy_waker();
             let mut context = Context::from_waker(&mut waker);
