@@ -21,7 +21,7 @@ lazy_static! {
 
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_intr_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_intr_handler);
-        //idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_intr_handler);
+        idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_intr_handler);
         idt
     };
 }
@@ -65,24 +65,24 @@ extern "x86-interrupt" fn timer_intr_handler(_stack_frame: InterruptStackFrame) 
     };
 }
 
-// extern "x86-interrupt" fn mouse_intr_handler(_stack_frame: InterruptStackFrame) {
-//     use x86_64::instructions::port::Port;
-//     let mut port = Port::new(0x60);
-//     let m: u8 = unsafe { port.read() };
+extern "x86-interrupt" fn mouse_intr_handler(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+    let mut port = Port::new(0x60);
+    let _m: u8 = unsafe { port.read() };
 
-//     cprint!(Pink, "*{}", m);
+    cprint!(Pink, "MOUSE");
 
-//     unsafe {
-//         PICS.lock()
-//             .notify_end_of_interrupt(InterruptIndex::Mouse.as_u8())
-//     };
-// }
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Mouse.as_u8())
+    };
+}
 
 extern "x86-interrupt" fn keyboard_intr_handler(_stack_frame: InterruptStackFrame) {
     //use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
     //use spin::Mutex;
     use x86_64::instructions::port::Port;
-
+    cprint!(Green, "KEY_PRESSED");
     // lazy_static! {
     //     static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(
     //         Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::Ignore)
@@ -122,9 +122,9 @@ pub static PICS: spin::Mutex<ChainedPics> =
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptIndex {
+    Keyboard = PIC_1_OFFSET + 1,
     Timer = PIC_1_OFFSET,
-    Keyboard,
-    Mouse = PIC_2_OFFSET + 4,
+    Mouse = PIC_1_OFFSET + 12,
 }
 
 impl InterruptIndex {
@@ -143,7 +143,7 @@ pub fn init_hw_int() {
         pics.write_masks(0x00, 0x00);
         pics.initialize();
         for mask in pics.read_masks() {
-            cprintln!(LightGray, "{:b}", mask);
+            cprintln!(LightGray, "{:8b}", mask);
         }
     }
     x86_64::instructions::interrupts::enable();

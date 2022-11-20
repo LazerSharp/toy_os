@@ -13,6 +13,7 @@ pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
+pub mod pci;
 pub mod serial;
 pub mod task;
 pub mod vga_buffer;
@@ -23,6 +24,7 @@ pub fn init() {
     gdt::init();
     interrupts::init_idt();
     interrupts::init_hw_int();
+    pci::scan_pci();
 }
 
 pub trait Testable {
