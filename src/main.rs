@@ -40,11 +40,68 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
 
+    #[cfg(not(test))]
+    run_executor();
+
+    #[cfg(not(test))]
+    other_calls();
+
+    #[cfg(test)]
+    test_main();
+
+    println!("I am still alive!");
+
+    // loop {
+    //     for _ in 1..1000 {}
+    //     cprint!(LightBlue, "-");
+    // }
+    toy_os::hlt_loop();
+}
+
+fn run_executor() {
     let mut executor = Executor::new();
     executor.spawn(Task::new(example_task()));
     executor.spawn(Task::new(keyboard::print_key_strokes()));
     executor.run();
+}
 
+#[allow(dead_code)]
+async fn async_number() -> u32 {
+    42
+}
+
+#[allow(dead_code)]
+async fn example_task() {
+    let num = async_number().await;
+    println!("Got number {}", num);
+}
+
+#[cfg(not(test))]
+#[panic_handler]
+fn panic(panic: &PanicInfo) -> ! {
+    use toy_os::cprintln;
+
+    cprintln!(Red, "Panic! msg: {}", panic);
+    toy_os::hlt_loop();
+}
+
+#[cfg(test)]
+#[panic_handler]
+fn panic(panic: &PanicInfo) -> ! {
+    toy_os::test_panic_handler(panic);
+}
+
+#[test_case]
+fn test1() {
+    assert_eq!(2, 1 + 1);
+}
+
+#[test_case]
+fn test2() {
+    assert_eq!(3, 2 + 1);
+}
+
+fn other_calls() {
     // let x = Box::new(123);
     // println!("x at {:p}", x);
 
@@ -142,51 +199,4 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // println!("How are you?");
     // //fg!();bg!(); // rest to default
     // println!("Hi Aarsi!");
-
-    #[cfg(test)]
-    test_main();
-
-    println!("I am still alive!");
-
-    // loop {
-    //     for _ in 1..1000 {}
-    //     cprint!(LightBlue, "-");
-    // }
-    toy_os::hlt_loop();
-}
-
-#[allow(dead_code)]
-async fn async_number() -> u32 {
-    42
-}
-
-#[allow(dead_code)]
-async fn example_task() {
-    let num = async_number().await;
-    println!("Got number {}", num);
-}
-
-#[cfg(not(test))]
-#[panic_handler]
-fn panic(panic: &PanicInfo) -> ! {
-    use toy_os::cprintln;
-
-    cprintln!(Red, "Panic! msg: {}", panic);
-    toy_os::hlt_loop();
-}
-
-#[cfg(test)]
-#[panic_handler]
-fn panic(panic: &PanicInfo) -> ! {
-    toy_os::test_panic_handler(panic);
-}
-
-#[test_case]
-fn test1() {
-    assert_eq!(2, 1 + 1);
-}
-
-#[test_case]
-fn test2() {
-    assert_eq!(3, 2 + 1);
 }
