@@ -85,7 +85,7 @@ impl Pci {
 
     fn device_has_function(&mut self, bus: u8, device: u8) -> bool {
         let r = unsafe { self.read(bus, device, 0, 0x0E) } & (1 << 7);
-        !(r == 1)
+        r != 0
     }
 }
 
