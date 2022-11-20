@@ -21,6 +21,7 @@ lazy_static! {
 
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_intr_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_intr_handler);
+        //idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_intr_handler);
         idt
     };
 }
@@ -63,6 +64,19 @@ extern "x86-interrupt" fn timer_intr_handler(_stack_frame: InterruptStackFrame) 
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8())
     };
 }
+
+// extern "x86-interrupt" fn mouse_intr_handler(_stack_frame: InterruptStackFrame) {
+//     use x86_64::instructions::port::Port;
+//     let mut port = Port::new(0x60);
+//     let m: u8 = unsafe { port.read() };
+
+//     cprint!(Pink, "*{}", m);
+
+//     unsafe {
+//         PICS.lock()
+//             .notify_end_of_interrupt(InterruptIndex::Mouse.as_u8())
+//     };
+// }
 
 extern "x86-interrupt" fn keyboard_intr_handler(_stack_frame: InterruptStackFrame) {
     //use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
@@ -110,6 +124,7 @@ pub static PICS: spin::Mutex<ChainedPics> =
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
     Keyboard,
+    Mouse = PIC_2_OFFSET + 4,
 }
 
 impl InterruptIndex {
@@ -123,7 +138,14 @@ impl InterruptIndex {
 }
 
 pub fn init_hw_int() {
-    unsafe { PICS.lock().initialize() };
+    unsafe {
+        let mut pics = PICS.lock();
+        pics.write_masks(0x00, 0x00);
+        pics.initialize();
+        for mask in pics.read_masks() {
+            cprintln!(LightGray, "{:b}", mask);
+        }
+    }
     x86_64::instructions::interrupts::enable();
 }
 
