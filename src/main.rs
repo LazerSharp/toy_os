@@ -14,6 +14,7 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use toy_os::allocator::init_heap;
 use toy_os::memory;
+use toy_os::pci::scan_pci;
 use toy_os::println;
 use toy_os::task::executor::Executor;
 use toy_os::task::keyboard;
@@ -39,6 +40,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
     init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
+
+    scan_pci();
 
     #[cfg(not(test))]
     run_executor();

@@ -10,6 +10,7 @@
 extern crate alloc;
 
 pub mod allocator;
+pub mod driver;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
@@ -24,7 +25,6 @@ pub fn init() {
     gdt::init();
     interrupts::init_idt();
     interrupts::init_hw_int();
-    pci::scan_pci();
 }
 
 pub trait Testable {
