@@ -6,6 +6,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
+#![feature(associated_const_equality)]
 
 extern crate alloc;
 
@@ -17,12 +18,26 @@ pub mod memory;
 pub mod pci;
 pub mod serial;
 pub mod task;
+pub mod util;
 pub mod vga_buffer;
 
 use core::{alloc::Layout, panic::PanicInfo};
 
-pub fn init() {
+use bootloader::BootInfo;
+use x86_64::VirtAddr;
+
+pub fn init(boot_info: &'static BootInfo) {
+    println!("Hello {}{}", "there", "!");
+
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_allocator =
+        unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
+
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
+    memory::set_mapper(mapper);
     gdt::init();
+    pci::scan_pci();
     interrupts::init_idt();
     interrupts::init_hw_int();
 }
@@ -87,7 +102,7 @@ fn alloc_error_handler(layout: Layout) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    init();
+    //init();
     test_main();
     hlt_loop();
 }

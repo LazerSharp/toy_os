@@ -4,12 +4,14 @@ use crate::gdt;
 use crate::hlt_loop;
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
+use spin::Mutex;
 use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::HandlerFunc;
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 lazy_static! {
-    static ref IDT: InterruptDescriptorTable = {
+    static ref IDT: Mutex<InterruptDescriptorTable> = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         unsafe {
@@ -22,8 +24,14 @@ lazy_static! {
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_intr_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_intr_handler);
         idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_intr_handler);
-        idt
+        Mutex::new(idt)
     };
+}
+
+pub fn init_idt() {
+    unsafe {
+        IDT.lock().load_unsafe();
+    }
 }
 
 extern "x86-interrupt" fn page_fault_handler(
@@ -51,14 +59,10 @@ extern "x86-interrupt" fn double_fault_handler(
     );
 }
 
-pub fn init_idt() {
-    IDT.load();
-}
-
 // Hardware interrupts
 
 extern "x86-interrupt" fn timer_intr_handler(_stack_frame: InterruptStackFrame) {
-    cprint!(LightGreen, ".");
+    //cprint!(LightGreen, ".");
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8())
@@ -147,6 +151,11 @@ pub fn init_hw_int() {
         }
     }
     x86_64::instructions::interrupts::enable();
+}
+
+pub fn set_interrupt_handler_fn(irq: usize, handler: HandlerFunc) {
+    let mut idt = IDT.lock();
+    idt[PIC_1_OFFSET as usize + irq].set_handler_fn(handler);
 }
 
 #[test_case]

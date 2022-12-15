@@ -12,14 +12,15 @@ use alloc::rc::Rc;
 use alloc::vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use toy_os::allocator::init_heap;
-use toy_os::memory;
+use toy_os::memory::virtual_to_physical_addr;
 use toy_os::pci::scan_pci;
 use toy_os::println;
 use toy_os::task::executor::Executor;
 use toy_os::task::keyboard;
 use toy_os::task::simple_executor::SimpleExecutor;
 use toy_os::task::Task;
+use toy_os::{cprintln, memory};
+use x86_64::structures::paging::{Mapper, OffsetPageTable, Size4KiB, Translate};
 use x86_64::VirtAddr;
 
 //cprintln
@@ -31,17 +32,12 @@ entry_point!(kernel_main);
 //#[no_mangle]
 //pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    println!("Hello {}{}", "there", "!");
-    toy_os::init();
-
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator =
-        unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
-
-    init_heap(&mut mapper, &mut frame_allocator).expect("heap init failed");
-
-    scan_pci();
+    toy_os::init(boot_info);
+    //test_virt_to_physical_memory(boot_info);
+    {
+        let mac = toy_os::driver::nic().lock().mac();
+        cprintln!(Pink, "mac = {:#?}", mac);
+    }
 
     #[cfg(not(test))]
     run_executor();
@@ -104,6 +100,33 @@ fn test2() {
     assert_eq!(3, 2 + 1);
 }
 
+fn test_virt_to_physical_memory(boot_info: &'static BootInfo) {
+    let addresses = [
+        // the identity-mapped vga buffer page
+        0xb8000,
+        0xb8000 + boot_info.physical_memory_offset,
+        // some code page
+        0x201008,
+        0x401008 + boot_info.physical_memory_offset,
+        // some stack page
+        0x0100_0020_1a10,
+        // virtual address mapped to physical address 0
+        boot_info.physical_memory_offset,
+    ];
+
+    for addr in addresses {
+        let vaddr = VirtAddr::new(addr);
+        cprintln!(
+            Brown,
+            "{:?} -> {:?}",
+            vaddr,
+            memory::virtual_to_physical_addr(vaddr)
+        );
+        //let paddr = unsafe { virttual_to_physical_addr(vaddr) };
+        //cprintln!(Green, "{:?} -> {:?}", vaddr, paddr);
+    }
+}
+
 fn other_calls() {
     // let x = Box::new(123);
     // println!("x at {:p}", x);
@@ -148,26 +171,6 @@ fn other_calls() {
     // }
 
     // new: initialize a mapper
-
-    // let addresses = [
-    //     // the identity-mapped vga buffer page
-    //     0xb8000,
-    //     0xb8000 + boot_info.physical_memory_offset,
-    //     // some code page
-    //     0x201008,
-    //     0x401008 + boot_info.physical_memory_offset,
-    //     // some stack page
-    //     0x0100_0020_1a10,
-    //     // virtual address mapped to physical address 0
-    //     boot_info.physical_memory_offset,
-    // ];
-
-    // for addr in addresses {
-    //     let vaddr = VirtAddr::new(addr);
-    //     cprintln!(Brown, "{:?} -> {:?}", vaddr, mapper.translate_addr(vaddr));
-    //     // let paddr = unsafe { virttual_to_physical_addr(vaddr, phys_mem_offset) };
-    //     // cprintln!(Green, "{:?} -> {:?}", vaddr, paddr);
-    // }
 
     // // map an unused page
     // let page = Page::containing_address(VirtAddr::new(0xdeadbeaf000));

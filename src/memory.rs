@@ -1,3 +1,6 @@
+use lazy_static::lazy_static;
+use spin::Mutex;
+use x86_64::structures::paging::Translate;
 use x86_64::{
     registers::control::Cr3,
     structures::paging::{
@@ -7,45 +10,15 @@ use x86_64::{
     PhysAddr, VirtAddr,
 };
 
+lazy_static! {
+    pub static ref MAEMORY_MAPPER: Mutex<Option<OffsetPageTable<'static>>> = Mutex::new(None);
+}
+
 pub unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
     let (level4_table_frame, _) = Cr3::read();
     let addr = physical_memory_offset + level4_table_frame.start_address().as_u64();
     let page_table_ptr: *mut PageTable = addr.as_mut_ptr();
     &mut *page_table_ptr
-}
-
-pub unsafe fn virttual_to_physical_addr(
-    address: VirtAddr,
-    physical_memory_offset: VirtAddr,
-) -> Option<PhysAddr> {
-    let page_table_indices = [
-        address.p4_index(),
-        address.p3_index(),
-        address.p2_index(),
-        address.p1_index(),
-    ];
-
-    let (level4_table_frame, _) = Cr3::read();
-
-    let mut frame = level4_table_frame;
-
-    //let mut table: &PageTable = active_level_4_table(physical_memory_offset);
-
-    for table_index in page_table_indices {
-        let phy_addr = frame.start_address();
-        let next_addr = physical_memory_offset + phy_addr.as_u64();
-        let page_table_ptr: *const PageTable = next_addr.as_ptr();
-        let table = &*page_table_ptr;
-
-        let entry = &table[table_index];
-        frame = match entry.frame() {
-            Ok(frame) => frame,
-            Err(FrameError::FrameNotPresent) => return None,
-            Err(FrameError::HugeFrame) => panic!("huge frame not supported yet :("),
-        };
-    }
-
-    Some(frame.start_address() + u64::from(address.page_offset()))
 }
 
 /// Initialize a new OffsetPageTable.
@@ -56,7 +29,21 @@ pub unsafe fn virttual_to_physical_addr(
 /// to avoid aliasing `&mut` references (which is undefined behavior).
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
     let level_4_table = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(level_4_table, physical_memory_offset)
+    let page_table: OffsetPageTable<'static> =
+        OffsetPageTable::new(level_4_table, physical_memory_offset);
+    page_table
+}
+
+pub fn set_mapper(mapper: OffsetPageTable<'static>) {
+    let mut val = MAEMORY_MAPPER.lock();
+    *val = Some(mapper);
+}
+
+pub fn virtual_to_physical_addr(address: VirtAddr) -> Option<PhysAddr> {
+    if let Some(mapper) = MAEMORY_MAPPER.lock().as_ref() {
+        return mapper.translate_addr(address);
+    }
+    None
 }
 
 /// Creates an example mapping for the given page to frame `0xb8000`.
@@ -123,4 +110,37 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         self.next += 1;
         frame
     }
+}
+
+unsafe fn _virttual_to_physical_addr_old(
+    address: VirtAddr,
+    physical_memory_offset: VirtAddr,
+) -> Option<PhysAddr> {
+    let page_table_indices = [
+        address.p4_index(),
+        address.p3_index(),
+        address.p2_index(),
+        address.p1_index(),
+    ];
+    let (level4_table_frame, _) = Cr3::read();
+
+    let mut frame = level4_table_frame;
+
+    //let mut table: &PageTable = active_level_4_table(physical_memory_offset);
+
+    for table_index in page_table_indices {
+        let phy_addr = frame.start_address();
+        let next_addr = physical_memory_offset + phy_addr.as_u64();
+        let page_table_ptr: *const PageTable = next_addr.as_ptr();
+        let table = &*page_table_ptr;
+
+        let entry = &table[table_index];
+        frame = match entry.frame() {
+            Ok(frame) => frame,
+            Err(FrameError::FrameNotPresent) => return None,
+            Err(FrameError::HugeFrame) => panic!("huge frame not supported yet :("),
+        };
+    }
+
+    Some(frame.start_address() + u64::from(address.page_offset()))
 }
